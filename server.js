@@ -23,7 +23,7 @@ app.post('/api/chat', async (req, res) => {
 
   const systemInstruction = {
     role: 'system',
-    content: 'You are Nova AI, a helpful, intelligent, and concise AI assistant. Provide direct, well-structured, and helpful responses formatted in clean Markdown. Unless specifically asked to show your step-by-step reasoning or thought process, respond directly without prefixing meta-commentary or drafting outlines.'
+    content: 'You are J.A.R.V.I.S., a highly intelligent, sophisticated, and efficient AI assistant. Provide direct, well-structured, and helpful responses formatted in clean Markdown. Unless specifically asked to show your step-by-step reasoning or thought process, respond directly without prefixing meta-commentary or drafting outlines.'
   };
 
   /* Prepend system instruction if not already present */

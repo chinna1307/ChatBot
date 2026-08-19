@@ -1,8 +1,6 @@
-# Nova AI — Next-Gen Conversational Studio
+# JARVIS — Luxury Conversational Studio
 
 A state-of-the-art conversational AI interface built with an ultra-fast Groq LPU backend and an obsidian-glassmorphic frontend.
-
-![Nova AI Preview](https://raw.githubusercontent.com/chinna1307/ChatBot/main/public/preview.png)
 
 ## ✨ Features
 

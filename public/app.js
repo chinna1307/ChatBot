@@ -1,5 +1,5 @@
 /* ========================================================================== */
-/*  NOVA STUDIO — Client Engine Logic                                         */
+/*  JARVIS STUDIO — Client Engine Logic                                       */
 /*  Features: Streaming SSE, Markdown Canvas, Thought Accordion, Voice,       */
 /*  Snippet Copy, Speech-to-Text, Model Catalog, Export & Archive             */
 /* ========================================================================== */
@@ -29,7 +29,7 @@
   const voiceToggleBtn   = $('#voiceToggleBtn');
 
   /* ── State ── */
-  let conversations     = JSON.parse(localStorage.getItem('nova_convos') || '[]');
+  let conversations     = JSON.parse(localStorage.getItem('jarvis_convos') || localStorage.getItem('nova_convos') || '[]');
   let activeConvId      = null;
   let isStreaming        = false;
   let abortCtrl         = null;
@@ -54,7 +54,7 @@
   }
 
   function save() {
-    localStorage.setItem('nova_convos', JSON.stringify(conversations));
+    localStorage.setItem('jarvis_convos', JSON.stringify(conversations));
   }
 
   function formatDate(ts) {
@@ -279,8 +279,8 @@
         <div class="message-avatar-box">${avatarLabel}</div>
         <div class="message-body-wrap">
           <div class="message-header-row">
-            <span class="message-sender">${role === 'user' ? 'You' : 'Nova AI'}</span>
-            ${role === 'assistant' ? `<span class="message-pro-tag">PRO</span>` : ''}
+            <span class="message-sender">${role === 'user' ? 'You' : 'JARVIS'}</span>
+            ${role === 'assistant' ? `<span class="message-pro-tag">AI</span>` : ''}
           </div>
           <div class="message-text">${
             role === 'user' ? `<p>${escapeHtml(content)}</p>` : renderMarkdown(content)
@@ -319,8 +319,8 @@
         <div class="message-avatar-box">✦</div>
         <div class="message-body-wrap">
           <div class="message-header-row">
-            <span class="message-sender">Nova AI</span>
-            <span class="message-pro-tag">PRO</span>
+            <span class="message-sender">JARVIS</span>
+            <span class="message-pro-tag">AI</span>
           </div>
           <div class="message-text">
             <div class="typing-dots">
@@ -604,9 +604,9 @@
       return;
     }
 
-    let md = `# ${conv.title}\n*Exported from Nova AI on ${new Date().toLocaleString()}*\n\n---\n\n`;
+    let md = `# ${conv.title}\n*Exported from JARVIS on ${new Date().toLocaleString()}*\n\n---\n\n`;
     conv.messages.forEach(m => {
-      md += `### ${m.role === 'user' ? '👤 User' : '✦ Nova AI'}\n\n${m.content}\n\n`;
+      md += `### ${m.role === 'user' ? '👤 User' : '✦ JARVIS'}\n\n${m.content}\n\n`;
     });
 
     const blob = new Blob([md], { type: 'text/markdown' });

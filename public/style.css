@@ -958,6 +958,22 @@ details[open] > .thought-summary .thought-icon {
   border-left: 2px solid var(--accent-violet);
 }
 
+/* ── Typing Cursor ── */
+.typing-cursor {
+  display: inline-block;
+  color: var(--accent-azure);
+  font-weight: 700;
+  margin-left: 2px;
+  animation: cursor-blink 0.8s infinite;
+  user-select: none;
+  font-family: monospace;
+}
+
+@keyframes cursor-blink {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0; }
+}
+
 /* ── Typing Pulse ── */
 .typing-dots {
   display: flex;

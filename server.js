@@ -53,10 +53,12 @@ app.post('/api/chat', async (req, res) => {
       return res.status(groqRes.status).json({ error: `Groq API error: ${groqRes.status}` });
     }
 
-    /* Stream SSE back to the client */
-    res.setHeader('Content-Type', 'text/event-stream');
-    res.setHeader('Cache-Control', 'no-cache');
+    /* Stream SSE back to the client with unbuffered headers */
+    res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
+    res.setHeader('Cache-Control', 'no-cache, no-transform');
     res.setHeader('Connection', 'keep-alive');
+    res.setHeader('X-Accel-Buffering', 'no'); // Prevents proxy buffering on Render / Nginx
+    res.flushHeaders(); // Flush headers immediately to start streaming
 
     const reader = groqRes.body.getReader();
     const decoder = new TextDecoder();

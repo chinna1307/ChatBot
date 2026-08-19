@@ -355,15 +355,16 @@
     messageInput.value = '';
     messageInput.style.height = 'auto';
     sendBtn.disabled = true;
-
-    const typingEl = appendTypingIndicator();
-
     isStreaming = true;
     sendBtn.classList.add('hidden');
     stopBtn.classList.remove('hidden');
     abortCtrl = new AbortController();
 
     let fullResponse = '';
+    let displayedLen = 0;
+    let streamFinished = false;
+
+    const typingEl = appendTypingIndicator();
 
     try {
       const res = await fetch('/api/chat', {
@@ -381,6 +382,27 @@
       typingEl.remove();
       const assistantEl = appendMessage('assistant', '');
       const bodyEl = assistantEl.querySelector('.assistant-body');
+
+      /* Typewriter Animation Ticker */
+      const typeWriterPromise = new Promise((resolve) => {
+        const typeInterval = setInterval(() => {
+          if (displayedLen < fullResponse.length) {
+            const remaining = fullResponse.length - displayedLen;
+            // Adaptive typing speed: 1-2 chars for close stream, 4-8 chars for bursts
+            const step = remaining > 80 ? 8 : remaining > 30 ? 4 : remaining > 10 ? 2 : 1;
+            displayedLen = Math.min(displayedLen + step, fullResponse.length);
+            
+            const currentSlice = fullResponse.slice(0, displayedLen);
+            bodyEl.innerHTML = renderMarkdown(currentSlice) + '<span class="typing-cursor">▌</span>';
+            messagesEl.scrollTop = messagesEl.scrollHeight;
+          } else if (streamFinished) {
+            clearInterval(typeInterval);
+            bodyEl.innerHTML = renderMarkdown(fullResponse);
+            messagesEl.scrollTop = messagesEl.scrollHeight;
+            resolve();
+          }
+        }, 14);
+      });
 
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
@@ -404,12 +426,13 @@
             const data = JSON.parse(payload);
             if (data.content) {
               fullResponse += data.content;
-              bodyEl.innerHTML = renderMarkdown(fullResponse);
-              messagesEl.scrollTop = messagesEl.scrollHeight;
             }
           } catch {}
         }
       }
+
+      streamFinished = true;
+      await typeWriterPromise;
     } catch (err) {
       typingEl.remove();
       if (err.name !== 'AbortError') {
@@ -442,14 +465,14 @@
   /*  Model Engine Catalog                                                    */
   /* ======================================================================== */
   async function loadModels() {
-    const chatPrefixes = ['llama', 'mixtral', 'gemma', 'qwen', 'deepseek', 'mistral'];
-    const preferred = ['llama-3.3-70b-versatile', 'llama-3.1-70b-versatile', 'llama-3.3-70b'];
+    const chatPrefixes = ['qwen', 'openai', 'allam', 'llama', 'mixtral', 'gemma', 'deepseek'];
+    const preferred = ['qwen/qwen3.6-27b', 'openai/gpt-oss-120b', 'openai/gpt-oss-20b'];
 
     try {
       const res = await fetch('/api/models');
       let models = await res.json();
 
-      models = models.filter(m => chatPrefixes.some(p => m.id.toLowerCase().startsWith(p)));
+      models = models.filter(m => chatPrefixes.some(p => m.id.toLowerCase().includes(p)) && !m.id.includes('guard'));
       if (models.length === 0) throw new Error();
 
       const defaultId = preferred.find(p => models.some(m => m.id === p)) || models[0].id;
@@ -461,11 +484,11 @@
       updateActiveModelLabel(defaultId);
     } catch {
       modelSelect.innerHTML = `
-        <option value="llama-3.3-70b-versatile" selected>llama-3.3-70b-versatile</option>
-        <option value="llama-3.1-8b-instant">llama-3.1-8b-instant</option>
-        <option value="mixtral-8x7b-32768">mixtral-8x7b-32768</option>
+        <option value="qwen/qwen3.6-27b" selected>qwen/qwen3.6-27b</option>
+        <option value="openai/gpt-oss-120b">openai/gpt-oss-120b</option>
+        <option value="openai/gpt-oss-20b">openai/gpt-oss-20b</option>
       `;
-      updateActiveModelLabel('llama-3.3-70b-versatile');
+      updateActiveModelLabel('qwen/qwen3.6-27b');
     }
   }
 

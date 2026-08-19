@@ -227,7 +227,7 @@
           <svg class="thought-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
             <polyline points="9 18 15 12 9 6"></polyline>
           </svg>
-          Thought process
+          Jarvis is thinking...
         </summary>
         <div class="thought-content">${marked.parse(trimmed)}</div>
       </details>`;

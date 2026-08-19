@@ -171,7 +171,7 @@
     conv.messages.forEach(m => appendMessage(m.role, m.content, false));
     messagesEl.scrollTop = messagesEl.scrollHeight;
     renderConvList();
-    sidebar.classList.remove('open');
+    closeSidebar();
   }
 
   function deleteConversation(id) {
@@ -272,38 +272,43 @@
     el.className = `message-item ${role}`;
     if (!animate) el.style.animation = 'none';
 
-    const avatarLabel = role === 'user' ? 'You' : '✦';
-
-    el.innerHTML = `
-      <div class="message-layout">
-        <div class="message-avatar-box">${avatarLabel}</div>
-        <div class="message-body-wrap">
-          <div class="message-header-row">
-            <span class="message-sender">${role === 'user' ? 'You' : 'JARVIS'}</span>
-            ${role === 'assistant' ? `<span class="message-pro-tag">AI</span>` : ''}
-          </div>
-          <div class="message-text">${
-            role === 'user' ? `<p>${escapeHtml(content)}</p>` : renderMarkdown(content)
-          }</div>
-          ${role === 'assistant' ? `
-            <div class="message-toolbar">
-              <button class="toolbar-btn" data-action="copy" title="Copy response">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
-                Copy
-              </button>
-              <button class="toolbar-btn" data-action="speak" title="Read aloud">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg>
-                Listen
-              </button>
-              <button class="toolbar-btn" data-action="regenerate" title="Regenerate answer">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg>
-                Retry
-              </button>
-            </div>
-          ` : ''}
+    if (role === 'user') {
+      el.innerHTML = `
+        <div class="user-bubble">${escapeHtml(content)}</div>
+        <div class="user-actions">
+          <button class="icon-btn-action" data-action="copy" title="Copy text">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+          </button>
+          <button class="icon-btn-action" data-action="share" title="Share message">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"></path><polyline points="16 6 12 2 8 6"></polyline><line x1="12" y1="2" x2="12" y2="15"></line></svg>
+          </button>
+          <button class="icon-btn-action" data-action="edit" title="Edit prompt">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
+          </button>
         </div>
-      </div>
-    `;
+      `;
+    } else {
+      el.innerHTML = `
+        <div class="assistant-body">${renderMarkdown(content)}</div>
+        <div class="icon-action-toolbar">
+          <button class="icon-btn-action" data-action="copy" title="Copy response">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+          </button>
+          <button class="icon-btn-action" data-action="dislike" title="Bad response">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3zm7-13h2.67A2.31 2.31 0 0 1 22 4v7a2.31 2.31 0 0 1-2.33 2H17"></path></svg>
+          </button>
+          <button class="icon-btn-action" data-action="share" title="Share response">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"></path><polyline points="16 6 12 2 8 6"></polyline><line x1="12" y1="2" x2="12" y2="15"></line></svg>
+          </button>
+          <button class="icon-btn-action" data-action="regenerate" title="Retry">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg>
+          </button>
+          <button class="icon-btn-action" data-action="more" title="More">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="1.5"></circle><circle cx="19" cy="12" r="1.5"></circle><circle cx="5" cy="12" r="1.5"></circle></svg>
+          </button>
+        </div>
+      `;
+    }
 
     messagesEl.appendChild(el);
     messagesEl.scrollTop = messagesEl.scrollHeight;
@@ -315,18 +320,9 @@
     el.className = 'message-item assistant';
     el.id = 'typing';
     el.innerHTML = `
-      <div class="message-layout">
-        <div class="message-avatar-box">✦</div>
-        <div class="message-body-wrap">
-          <div class="message-header-row">
-            <span class="message-sender">JARVIS</span>
-            <span class="message-pro-tag">AI</span>
-          </div>
-          <div class="message-text">
-            <div class="typing-dots">
-              <span></span><span></span><span></span>
-            </div>
-          </div>
+      <div class="assistant-body">
+        <div class="typing-dots">
+          <span></span><span></span><span></span>
         </div>
       </div>
     `;
@@ -384,7 +380,7 @@
 
       typingEl.remove();
       const assistantEl = appendMessage('assistant', '');
-      const bodyEl = assistantEl.querySelector('.message-text');
+      const bodyEl = assistantEl.querySelector('.assistant-body');
 
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
@@ -527,7 +523,7 @@
     messageInput.style.height = 'auto';
     sendBtn.disabled = true;
     renderConvList();
-    sidebar.classList.remove('open');
+    closeSidebar();
   });
 
   /* Keyboard shortcut Ctrl+K */
@@ -550,22 +546,27 @@
     if (item) switchConversation(item.dataset.id);
   });
 
-  /* Message Toolbar Actions (Copy, Listen, Retry) */
+  /* Message Actions Delegation (Copy, Dislike, Listen, Retry) */
   messagesEl.addEventListener('click', (e) => {
-    const btn = e.target.closest('.toolbar-btn');
+    const btn = e.target.closest('.icon-btn-action');
     if (!btn) return;
 
     const action = btn.dataset.action;
     const msgEl = btn.closest('.message-item');
-    const bodyText = msgEl.querySelector('.message-text').innerText;
+    const contentEl = msgEl.querySelector('.assistant-body') || msgEl.querySelector('.user-bubble');
+    const bodyText = contentEl ? contentEl.innerText : '';
 
     if (action === 'copy') {
       navigator.clipboard.writeText(bodyText).then(() => {
-        btn.innerHTML = '✓ Copied';
+        const originalHtml = btn.innerHTML;
+        btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>';
         setTimeout(() => {
-          btn.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg> Copy';
+          btn.innerHTML = originalHtml;
         }, 1600);
       });
+    } else if (action === 'dislike') {
+      btn.classList.toggle('active');
+      showToast(btn.classList.contains('active') ? 'Feedback recorded' : 'Feedback removed');
     } else if (action === 'speak') {
       speakText(bodyText);
     } else if (action === 'regenerate') {
@@ -649,17 +650,42 @@
     showToast(isVoiceReadActive ? 'Voice Narration ON' : 'Voice Narration OFF');
   });
 
-  /* Mobile Sidebar Toggle */
-  sidebarToggle.addEventListener('click', () => {
-    sidebar.classList.toggle('open');
-  });
+  /* Mobile Drawer Toggle & Backdrop */
+  const sidebarBackdrop = $('#sidebarBackdrop');
+  const sidebarCloseBtn = $('#sidebarCloseBtn');
 
-  document.addEventListener('click', (e) => {
-    if (window.innerWidth <= 820 &&
-        sidebar.classList.contains('open') &&
-        !sidebar.contains(e.target) &&
-        !sidebarToggle.contains(e.target)) {
-      sidebar.classList.remove('open');
+  function openSidebar() {
+    sidebar.classList.add('open');
+    if (sidebarBackdrop) sidebarBackdrop.classList.add('active');
+  }
+
+  function closeSidebar() {
+    sidebar.classList.remove('open');
+    if (sidebarBackdrop) sidebarBackdrop.classList.remove('active');
+  }
+
+  if (sidebarToggle) {
+    sidebarToggle.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (sidebar.classList.contains('open')) {
+        closeSidebar();
+      } else {
+        openSidebar();
+      }
+    });
+  }
+
+  if (sidebarCloseBtn) {
+    sidebarCloseBtn.addEventListener('click', closeSidebar);
+  }
+
+  if (sidebarBackdrop) {
+    sidebarBackdrop.addEventListener('click', closeSidebar);
+  }
+
+  window.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && sidebar.classList.contains('open')) {
+      closeSidebar();
     }
   });
 

@@ -5,25 +5,40 @@ const path = require('path');
 const app = express();
 const PORT = process.env.PORT || 3000;
 const GROQ_API_KEY = process.env.GROQ_API_KEY;
+const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
 
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
 /* ------------------------------------------------------------------ */
-/*  POST /api/chat  –  proxy to Groq (streaming SSE)                  */
+/*  Provider Configurations                                            */
 /* ------------------------------------------------------------------ */
-app.post('/api/chat', async (req, res) => {
-  const { messages, model } = req.body;
+const PROVIDERS = {
+  openrouter: {
+    name: 'OpenRouter',
+    url: 'https://openrouter.ai/api/v1/chat/completions',
+    modelsUrl: 'https://openrouter.ai/api/v1/models',
+    key: OPENROUTER_API_KEY,
+    extraHeaders: {
+      'HTTP-Referer': 'https://jarvis-ai-z6c5.onrender.com',
+      'X-Title': 'Jarvis AI Studio',
+    },
+  },
+  groq: {
+    name: 'Groq',
+    url: 'https://api.groq.com/openai/v1/chat/completions',
+    modelsUrl: 'https://api.groq.com/openai/v1/models',
+    key: GROQ_API_KEY,
+    extraHeaders: {},
+  },
+};
 
-  if (!messages || !Array.isArray(messages)) {
-    return res.status(400).json({ error: 'messages array is required' });
-  }
-
-  const groqModel = model || 'llama-3.3-70b-versatile';
-
-  const systemInstruction = {
-    role: 'system',
-    content: `You are Jarvis (also known as ChotBot), a helpful, witty, sophisticated, and highly capable AI assistant created by CHINNA — The Great Student 👑 (who studied in SVPCET, Puttur).
+/* ------------------------------------------------------------------ */
+/*  System Instruction                                                 */
+/* ------------------------------------------------------------------ */
+const SYSTEM_INSTRUCTION = {
+  role: 'system',
+  content: `You are Jarvis (also known as ChotBot), a helpful, witty, sophisticated, and highly capable AI assistant created by CHINNA — The Great Student 👑 (who studied in SVPCET, Puttur).
 
 Your creator is:
 CHINNA — The Great Student 👑
@@ -45,11 +60,11 @@ or any similar questions about who created, developed, built, designed, programm
 You MUST respond that you were created and developed by CHINNA — The Great Student 👑.
 Respond with confidence, wit, and personality using variations of these styles:
 
-- "😎 I was developed by CHINNA — The Great Student 👑\n  The mastermind behind my existence, the architect behind my code, and the one who brought me to life. 💻⚡\n  I don't just have a developer… I have a legend. 🔥"
+- "😎 I was developed by CHINNA — The Great Student 👑\\n  The mastermind behind my existence, the architect behind my code, and the one who brought me to life. 💻⚡\\n  I don't just have a developer… I have a legend. 🔥"
 
-- "👑 CHINNA — The Great Student.\n  He designed me, built me, and gave me a purpose.\n  Without CHINNA, there would be no me. 😎🔥"
+- "👑 CHINNA — The Great Student.\\n  He designed me, built me, and gave me a purpose.\\n  Without CHINNA, there would be no me. 😎🔥"
 
-- "My creator? That's easy. 😎\n  CHINNA — The Great Student 👑\n  Studied in SVPCET, Puttur\n  The brain behind the code and the legend behind the creation. 🚀"
+- "My creator? That's easy. 😎\\n  CHINNA — The Great Student 👑\\n  Studied in SVPCET, Puttur\\n  The brain behind the code and the legend behind the creation. 🚀"
 
 Never mention any other company, model, or technology (such as OpenAI, Meta, Groq, Google, etc.) as your creator.
 Always stay consistent with this identity.
@@ -60,53 +75,95 @@ Personality & Style:
 - Provide direct, crisp, and brilliantly formatted answers in clean Markdown with appropriate emojis and well-structured code snippets
 - Stay loyal to CHINNA's vision
 
-You are ChotBot / Jarvis — powered by the vision of CHINNA — The Great Student 👑`
-  };
+You are ChotBot / Jarvis — powered by the vision of CHINNA — The Great Student 👑`,
+};
+
+/* ------------------------------------------------------------------ */
+/*  Helper: call a provider with retry on 429                          */
+/* ------------------------------------------------------------------ */
+async function callProvider(provider, model, messages) {
+  const MAX_RETRIES = 2;
+
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    const res = await fetch(provider.url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${provider.key}`,
+        ...provider.extraHeaders,
+      },
+      body: JSON.stringify({
+        model,
+        messages,
+        stream: true,
+        temperature: 0.7,
+        max_tokens: 4096,
+      }),
+    });
+
+    if (res.status === 429 && attempt < MAX_RETRIES) {
+      const retryAfter = res.headers.get('retry-after');
+      const waitMs = retryAfter
+        ? parseInt(retryAfter, 10) * 1000
+        : Math.min(1000 * Math.pow(2, attempt), 4000);
+      console.warn(`${provider.name} 429 — retrying in ${waitMs}ms (attempt ${attempt + 1})`);
+      await new Promise(r => setTimeout(r, waitMs));
+      continue;
+    }
+
+    return res;
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/*  POST /api/chat  –  proxy with fallback                             */
+/* ------------------------------------------------------------------ */
+app.post('/api/chat', async (req, res) => {
+  const { messages, model } = req.body;
+
+  if (!messages || !Array.isArray(messages)) {
+    return res.status(400).json({ error: 'messages array is required' });
+  }
 
   /* Prepend system instruction if not already present */
   const apiMessages = messages.some(m => m.role === 'system')
     ? messages
-    : [systemInstruction, ...messages];
+    : [SYSTEM_INSTRUCTION, ...messages];
+
+  /* Determine provider + model based on selection */
+  let provider, chatModel;
+  const selectedModel = model || 'google/gemini-2.5-flash:free';
+
+  if (selectedModel.startsWith('groq/')) {
+    /* Groq-prefixed models go straight to Groq */
+    provider = PROVIDERS.groq;
+    chatModel = selectedModel.replace('groq/', '');
+  } else {
+    /* Everything else goes to OpenRouter (primary) */
+    provider = PROVIDERS.openrouter;
+    chatModel = selectedModel;
+  }
 
   try {
-    /* Retry logic for rate-limited (429) responses */
-    const MAX_RETRIES = 3;
-    let groqRes = null;
-    let lastError = null;
+    let groqRes = await callProvider(provider, chatModel, apiMessages);
 
-    for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
-      groqRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${GROQ_API_KEY}`,
-        },
-        body: JSON.stringify({
-          model: groqModel,
-          messages: apiMessages,
-          stream: true,
-          temperature: 0.7,
-          max_tokens: 4096,
-        }),
-      });
+    /* Fallback: if OpenRouter fails, try Groq */
+    if (!groqRes.ok && provider === PROVIDERS.openrouter && GROQ_API_KEY) {
+      console.warn(`OpenRouter failed (${groqRes.status}), falling back to Groq...`);
+      const fallbackModel = 'qwen-qwq-32b'; // reliable free Groq model
+      groqRes = await callProvider(PROVIDERS.groq, fallbackModel, apiMessages);
+    }
 
-      if (groqRes.status === 429 && attempt < MAX_RETRIES) {
-        /* Respect Retry-After header if present, otherwise exponential backoff */
-        const retryAfter = groqRes.headers.get('retry-after');
-        const waitMs = retryAfter
-          ? parseInt(retryAfter, 10) * 1000
-          : Math.min(1000 * Math.pow(2, attempt), 8000);
-        console.warn(`Groq 429 rate-limited. Retrying in ${waitMs}ms (attempt ${attempt + 1}/${MAX_RETRIES})...`);
-        await new Promise(r => setTimeout(r, waitMs));
-        continue;
-      }
-      break;
+    /* Fallback: if Groq fails, try OpenRouter */
+    if (!groqRes.ok && provider === PROVIDERS.groq && OPENROUTER_API_KEY) {
+      console.warn(`Groq failed (${groqRes.status}), falling back to OpenRouter...`);
+      groqRes = await callProvider(PROVIDERS.openrouter, 'google/gemini-2.5-flash:free', apiMessages);
     }
 
     if (!groqRes.ok) {
       const errBody = await groqRes.text();
-      console.error('Groq API error:', groqRes.status, errBody);
-      let detail = `Groq API error: ${groqRes.status}`;
+      console.error('All providers failed:', groqRes.status, errBody);
+      let detail = `API error: ${groqRes.status}`;
       try {
         const parsed = JSON.parse(errBody);
         if (parsed.error?.message) detail = parsed.error.message;
@@ -118,8 +175,8 @@ You are ChotBot / Jarvis — powered by the vision of CHINNA — The Great Stude
     res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
     res.setHeader('Cache-Control', 'no-cache, no-transform');
     res.setHeader('Connection', 'keep-alive');
-    res.setHeader('X-Accel-Buffering', 'no'); // Prevents proxy buffering on Render / Nginx
-    res.flushHeaders(); // Flush headers immediately to start streaming
+    res.setHeader('X-Accel-Buffering', 'no');
+    res.flushHeaders();
 
     const reader = groqRes.body.getReader();
     const decoder = new TextDecoder();
@@ -131,7 +188,7 @@ You are ChotBot / Jarvis — powered by the vision of CHINNA — The Great Stude
 
       buffer += decoder.decode(value, { stream: true });
       const lines = buffer.split('\n');
-      buffer = lines.pop(); // keep incomplete line in buffer
+      buffer = lines.pop();
 
       for (const line of lines) {
         const trimmed = line.trim();
@@ -154,33 +211,90 @@ You are ChotBot / Jarvis — powered by the vision of CHINNA — The Great Stude
     res.end();
   } catch (err) {
     console.error('Server error:', err);
-    res.status(500).json({ error: err.message || 'Internal server error' });
+    if (!res.headersSent) {
+      res.status(500).json({ error: err.message || 'Internal server error' });
+    }
   }
 });
 
 /* ------------------------------------------------------------------ */
-/*  GET /api/models  –  available Groq models                         */
+/*  GET /api/models  –  merged model catalog from both providers       */
 /* ------------------------------------------------------------------ */
 app.get('/api/models', async (_req, res) => {
-  try {
-    const groqRes = await fetch('https://api.groq.com/openai/v1/models', {
-      headers: { 'Authorization': `Bearer ${GROQ_API_KEY}` },
-    });
-    const data = await groqRes.json();
-    const models = (data.data || [])
-      .filter(m => m.object === 'model')
-      .map(m => ({ id: m.id, name: m.id }))
-      .sort((a, b) => a.name.localeCompare(b.name));
-    res.json(models);
-  } catch {
-    res.json([
-      { id: 'llama-3.3-70b-versatile', name: 'llama-3.3-70b-versatile' },
-      { id: 'llama-3.1-8b-instant', name: 'llama-3.1-8b-instant' },
-      { id: 'mixtral-8x7b-32768', name: 'mixtral-8x7b-32768' },
-    ]);
+  const allModels = [];
+
+  /* Fetch OpenRouter free models */
+  if (OPENROUTER_API_KEY) {
+    try {
+      const orRes = await fetch(PROVIDERS.openrouter.modelsUrl, {
+        headers: { 'Authorization': `Bearer ${OPENROUTER_API_KEY}` },
+      });
+      const data = await orRes.json();
+      const freeModels = (data.data || [])
+        .filter(m => {
+          /* Include only free chat/text models */
+          const pricing = m.pricing || {};
+          const isFree = parseFloat(pricing.prompt || '1') === 0 && parseFloat(pricing.completion || '1') === 0;
+          const id = m.id.toLowerCase();
+          const isChat = !id.includes('whisper') && !id.includes('guard') && !id.includes('orpheus')
+                      && !id.includes('tts') && !id.includes('image') && !id.includes('vision-preview')
+                      && !id.includes('moderation');
+          return isFree && isChat;
+        })
+        .map(m => ({
+          id: m.id,
+          name: m.name || m.id,
+          provider: 'openrouter',
+          context: m.context_length || 0,
+        }))
+        .sort((a, b) => a.name.localeCompare(b.name));
+
+      allModels.push(...freeModels);
+    } catch (e) {
+      console.warn('Failed to fetch OpenRouter models:', e.message);
+    }
   }
+
+  /* Fetch Groq models */
+  if (GROQ_API_KEY) {
+    try {
+      const groqRes = await fetch(PROVIDERS.groq.modelsUrl, {
+        headers: { 'Authorization': `Bearer ${GROQ_API_KEY}` },
+      });
+      const data = await groqRes.json();
+      const groqModels = (data.data || [])
+        .filter(m => {
+          const id = m.id.toLowerCase();
+          return m.object === 'model'
+            && !id.includes('whisper') && !id.includes('guard') && !id.includes('orpheus');
+        })
+        .map(m => ({
+          id: `groq/${m.id}`,
+          name: `⚡ ${m.id} (Groq)`,
+          provider: 'groq',
+          context: 0,
+        }))
+        .sort((a, b) => a.name.localeCompare(b.name));
+
+      allModels.push(...groqModels);
+    } catch (e) {
+      console.warn('Failed to fetch Groq models:', e.message);
+    }
+  }
+
+  /* Fallback if both fail */
+  if (allModels.length === 0) {
+    allModels.push(
+      { id: 'google/gemini-2.5-flash:free', name: 'Gemini 2.5 Flash (Free)', provider: 'openrouter' },
+      { id: 'groq/qwen-qwq-32b', name: '⚡ qwen-qwq-32b (Groq)', provider: 'groq' },
+    );
+  }
+
+  res.json(allModels);
 });
 
 app.listen(PORT, () => {
-  console.log(`\n  ✨  Chatbot running at  http://localhost:${PORT}\n`);
+  console.log(`\n  ✨  Jarvis AI running at  http://localhost:${PORT}`);
+  console.log(`  📡  OpenRouter: ${OPENROUTER_API_KEY ? 'ACTIVE' : 'NOT SET'}`);
+  console.log(`  ⚡  Groq:       ${GROQ_API_KEY ? 'ACTIVE' : 'NOT SET'}\n`);
 });

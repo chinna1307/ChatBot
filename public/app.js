@@ -472,18 +472,12 @@
   /*  Model Engine Catalog                                                    */
   /* ======================================================================== */
   async function loadModels() {
-    const chatPrefixes = ['qwen', 'openai', 'allam', 'llama', 'mixtral', 'gemma', 'deepseek'];
-    const preferred = ['qwen/qwen3.6-27b', 'openai/gpt-oss-120b', 'openai/gpt-oss-20b'];
+    const preferred = ['google/gemini-2.5-flash:free', 'google/gemini-2.0-flash-exp:free', 'meta-llama/llama-4-maverick:free'];
 
     try {
       const res = await fetch('/api/models');
       let models = await res.json();
 
-      /* Exclude non-chat models: whisper (audio), prompt-guard (safety), orpheus (TTS) */
-      models = models.filter(m => {
-        const id = m.id.toLowerCase();
-        return !id.includes('whisper') && !id.includes('guard') && !id.includes('orpheus');
-      });
       if (models.length === 0) throw new Error();
 
       const defaultId = preferred.find(p => models.some(m => m.id === p)) || models[0].id;
@@ -495,43 +489,46 @@
       updateActiveModelLabel(defaultId);
     } catch {
       modelSelect.innerHTML = `
-        <option value="qwen/qwen3.6-27b" selected>qwen/qwen3.6-27b</option>
-        <option value="openai/gpt-oss-120b">openai/gpt-oss-120b</option>
-        <option value="openai/gpt-oss-20b">openai/gpt-oss-20b</option>
+        <option value="google/gemini-2.5-flash:free" selected>Gemini 2.5 Flash (Free)</option>
+        <option value="groq/qwen-qwq-32b">⚡ qwen-qwq-32b (Groq)</option>
       `;
-      updateActiveModelLabel('qwen/qwen3.6-27b');
+      updateActiveModelLabel('google/gemini-2.5-flash:free');
     }
   }
 
   function updateActiveModelLabel(modelId) {
     activeModelName.textContent = modelId;
     const id = modelId.toLowerCase();
-    if (id.includes('compound')) {
+    if (id.includes('gemini')) {
+      modelBadge.textContent = '✨ Gemini';
+      modelBadge.style.background = 'rgba(56, 189, 248, 0.12)';
+      modelBadge.style.color = '#38bdf8';
+    } else if (id.includes('compound')) {
       modelBadge.textContent = '🔗 Compound';
       modelBadge.style.background = 'rgba(251, 191, 36, 0.12)';
       modelBadge.style.color = '#fbbf24';
-    } else if (id.includes('120b')) {
-      modelBadge.textContent = '🔥 120B Ultra';
+    } else if (id.includes('llama')) {
+      modelBadge.textContent = '🦙 Llama';
       modelBadge.style.background = 'rgba(239, 68, 68, 0.12)';
       modelBadge.style.color = '#ef4444';
-    } else if (id.includes('70b')) {
-      modelBadge.textContent = '70B Ultra';
-      modelBadge.style.background = 'rgba(56, 189, 248, 0.12)';
-      modelBadge.style.color = '#38bdf8';
-    } else if (id.includes('8b') || id.includes('instant')) {
-      modelBadge.textContent = '⚡ Instant';
-      modelBadge.style.background = 'rgba(16, 185, 129, 0.12)';
-      modelBadge.style.color = '#10b981';
-    } else if (id.includes('deepseek') || id.includes('qwen')) {
+    } else if (id.includes('qwen')) {
       modelBadge.textContent = '🧠 Reasoning';
       modelBadge.style.background = 'rgba(196, 181, 253, 0.12)';
       modelBadge.style.color = '#c4b5fd';
-    } else if (id.includes('gpt-oss')) {
-      modelBadge.textContent = '💎 GPT-OSS';
-      modelBadge.style.background = 'rgba(56, 189, 248, 0.12)';
-      modelBadge.style.color = '#38bdf8';
+    } else if (id.includes('deepseek')) {
+      modelBadge.textContent = '🔬 DeepSeek';
+      modelBadge.style.background = 'rgba(16, 185, 129, 0.12)';
+      modelBadge.style.color = '#10b981';
+    } else if (id.includes('mistral') || id.includes('mixtral')) {
+      modelBadge.textContent = '🌀 Mistral';
+      modelBadge.style.background = 'rgba(251, 146, 60, 0.12)';
+      modelBadge.style.color = '#fb923c';
+    } else if (id.startsWith('groq/')) {
+      modelBadge.textContent = '⚡ Groq';
+      modelBadge.style.background = 'rgba(16, 185, 129, 0.12)';
+      modelBadge.style.color = '#10b981';
     } else {
-      modelBadge.textContent = 'Turbo';
+      modelBadge.textContent = '🤖 AI';
       modelBadge.style.background = 'rgba(148, 163, 184, 0.12)';
       modelBadge.style.color = '#94a3b8';
     }

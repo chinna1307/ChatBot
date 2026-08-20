@@ -964,7 +964,7 @@ details[open] > .thought-summary .thought-icon {
   border: 1px solid var(--border-subtle);
   border-radius: 8px;
   overflow: hidden;
-  animation: thinkingPulse 2s ease-in-out infinite;
+  animation: thinkingPulse 2s ease-in-out infinite, thinkingSlideIn 0.25s var(--ease-lux) both;
 }
 
 .thinking-header {
@@ -976,6 +976,8 @@ details[open] > .thought-summary .thought-icon {
   font-weight: 600;
   color: var(--accent-lavender);
   background: rgba(139, 92, 246, 0.06);
+  flex-wrap: nowrap;
+  white-space: nowrap;
 }
 
 .thinking-icon-spinner {
@@ -987,17 +989,8 @@ details[open] > .thought-summary .thought-icon {
 }
 
 .thinking-text {
-  display: flex;
-  align-items: baseline;
-  gap: 0;
-}
-
-.thinking-ellipsis::after {
-  content: '';
-  animation: ellipsis 1.4s steps(4, end) infinite;
-  display: inline-block;
-  width: 1.2em;
-  text-align: left;
+  font-weight: 600;
+  letter-spacing: 0.01em;
 }
 
 @keyframes spinThink {
@@ -1024,6 +1017,12 @@ details[open] > .thought-summary .thought-icon {
   }
 }
 
+@keyframes thinkingSlideIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+
 /* ── Typing Cursor ── */
 .typing-cursor {
   display: inline-block;
@@ -1040,26 +1039,28 @@ details[open] > .thought-summary .thought-icon {
   50%      { opacity: 0; }
 }
 
-/* ── Typing Pulse ── */
+/* ── Typing Pulse Dots ── */
 .typing-dots {
   display: flex;
-  gap: 5px;
-  padding: 6px 0;
+  gap: 4px;
+  align-items: center;
+  flex-shrink: 0;
 }
 .typing-dots span {
-  width: 6px;
-  height: 6px;
+  width: 5px;
+  height: 5px;
   border-radius: 50%;
   background: var(--accent-lavender);
   animation: dot-pulse 1.2s infinite ease-in-out;
+  display: inline-block;
 }
 .typing-dots span:nth-child(2) {
-  animation-delay: 0.15s;
+  animation-delay: 0.2s;
   background: var(--accent-cyan);
 }
 .typing-dots span:nth-child(3) {
-  animation-delay: 0.3s;
-  background: var(--accent-violet);
+  animation-delay: 0.4s;
+  background: #8b5cf6;
 }
 
 @keyframes dot-pulse {

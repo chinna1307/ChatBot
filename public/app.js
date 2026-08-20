@@ -319,20 +319,30 @@
     const el = document.createElement('div');
     el.className = 'message-item assistant';
     el.id = 'typing';
+    el.setAttribute('aria-live', 'polite');
+    el.setAttribute('aria-label', 'JARVIS is thinking');
     el.innerHTML = `
       <div class="assistant-body">
-        <div class="thinking-indicator">
+        <div class="thinking-indicator" role="status">
           <div class="thinking-header">
-            <svg class="thinking-icon-spinner" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <svg class="thinking-icon-spinner" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true">
               <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
             </svg>
-            <span class="thinking-text">Jarvis is thinking<span class="thinking-ellipsis"></span></span>
+            <span class="thinking-text">Thinking</span>
+            <div class="typing-dots" aria-hidden="true">
+              <span></span>
+              <span></span>
+              <span></span>
+            </div>
           </div>
         </div>
       </div>
     `;
     messagesEl.appendChild(el);
     messagesEl.scrollTop = messagesEl.scrollHeight;
+    /* Safe single-remove helper — prevents double-remove errors */
+    let removed = false;
+    el.removeOnce = () => { if (!removed) { removed = true; el.remove(); } };
     return el;
   }
 
@@ -369,6 +379,7 @@
     let displayedLen = 0;
     let streamFinished = false;
 
+    /* ── Thinking indicator appears IMMEDIATELY before any API call ── */
     const typingEl = appendTypingIndicator();
 
     try {
@@ -391,7 +402,8 @@
         throw new Error(errMsg);
       }
 
-      typingEl.remove();
+      /* ── First token/response arrived — remove thinking, show response ── */
+      typingEl.removeOnce();
       const assistantEl = appendMessage('assistant', '');
       const bodyEl = assistantEl.querySelector('.assistant-body');
 
@@ -403,7 +415,7 @@
             // Adaptive typing speed: 1-2 chars for close stream, 4-8 chars for bursts
             const step = remaining > 80 ? 8 : remaining > 30 ? 4 : remaining > 10 ? 2 : 1;
             displayedLen = Math.min(displayedLen + step, fullResponse.length);
-            
+
             const currentSlice = fullResponse.slice(0, displayedLen);
             bodyEl.innerHTML = renderMarkdown(currentSlice) + '<span class="typing-cursor">▌</span>';
             messagesEl.scrollTop = messagesEl.scrollHeight;
@@ -446,15 +458,19 @@
       streamFinished = true;
       await typeWriterPromise;
     } catch (err) {
-      typingEl.remove();
+      /* ── Always remove thinking on error/abort/network-fail/timeout ── */
+      typingEl.removeOnce();
       if (err.name !== 'AbortError') {
         showToast(err.message || 'Inference error. Please verify your connection or model.', true);
         console.error(err);
       }
     } finally {
+      /* ── Ensure thinking is gone and input is restored in ALL cases ── */
+      typingEl.removeOnce();
       isStreaming = false;
       stopBtn.classList.add('hidden');
       sendBtn.classList.remove('hidden');
+      sendBtn.disabled = !messageInput.value.trim();
 
       if (fullResponse) {
         conv.messages.push({ role: 'assistant', content: fullResponse });

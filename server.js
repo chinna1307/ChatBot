@@ -69,25 +69,49 @@ You are ChotBot / Jarvis — powered by the vision of CHINNA — The Great Stude
     : [systemInstruction, ...messages];
 
   try {
-    const groqRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${GROQ_API_KEY}`,
-      },
-      body: JSON.stringify({
-        model: groqModel,
-        messages: apiMessages,
-        stream: true,
-        temperature: 0.7,
-        max_tokens: 4096,
-      }),
-    });
+    /* Retry logic for rate-limited (429) responses */
+    const MAX_RETRIES = 3;
+    let groqRes = null;
+    let lastError = null;
+
+    for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+      groqRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${GROQ_API_KEY}`,
+        },
+        body: JSON.stringify({
+          model: groqModel,
+          messages: apiMessages,
+          stream: true,
+          temperature: 0.7,
+          max_tokens: 4096,
+        }),
+      });
+
+      if (groqRes.status === 429 && attempt < MAX_RETRIES) {
+        /* Respect Retry-After header if present, otherwise exponential backoff */
+        const retryAfter = groqRes.headers.get('retry-after');
+        const waitMs = retryAfter
+          ? parseInt(retryAfter, 10) * 1000
+          : Math.min(1000 * Math.pow(2, attempt), 8000);
+        console.warn(`Groq 429 rate-limited. Retrying in ${waitMs}ms (attempt ${attempt + 1}/${MAX_RETRIES})...`);
+        await new Promise(r => setTimeout(r, waitMs));
+        continue;
+      }
+      break;
+    }
 
     if (!groqRes.ok) {
-      const err = await groqRes.text();
-      console.error('Groq API error:', groqRes.status, err);
-      return res.status(groqRes.status).json({ error: `Groq API error: ${groqRes.status}` });
+      const errBody = await groqRes.text();
+      console.error('Groq API error:', groqRes.status, errBody);
+      let detail = `Groq API error: ${groqRes.status}`;
+      try {
+        const parsed = JSON.parse(errBody);
+        if (parsed.error?.message) detail = parsed.error.message;
+      } catch {}
+      return res.status(groqRes.status).json({ error: detail });
     }
 
     /* Stream SSE back to the client with unbuffered headers */
@@ -130,7 +154,7 @@ You are ChotBot / Jarvis — powered by the vision of CHINNA — The Great Stude
     res.end();
   } catch (err) {
     console.error('Server error:', err);
-    res.status(500).json({ error: 'Internal server error' });
+    res.status(500).json({ error: err.message || 'Internal server error' });
   }
 });
 

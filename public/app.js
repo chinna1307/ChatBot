@@ -377,7 +377,14 @@
         signal: abortCtrl.signal,
       });
 
-      if (!res.ok) throw new Error(`API returned status ${res.status}`);
+      if (!res.ok) {
+        let errMsg = 'Inference error. Please verify your connection or model.';
+        try {
+          const errData = await res.json();
+          if (errData.error) errMsg = errData.error;
+        } catch {}
+        throw new Error(errMsg);
+      }
 
       typingEl.remove();
       const assistantEl = appendMessage('assistant', '');
@@ -436,7 +443,7 @@
     } catch (err) {
       typingEl.remove();
       if (err.name !== 'AbortError') {
-        showToast('Inference error. Please verify your connection or model.', true);
+        showToast(err.message || 'Inference error. Please verify your connection or model.', true);
         console.error(err);
       }
     } finally {
@@ -472,7 +479,11 @@
       const res = await fetch('/api/models');
       let models = await res.json();
 
-      models = models.filter(m => chatPrefixes.some(p => m.id.toLowerCase().includes(p)) && !m.id.includes('guard'));
+      /* Exclude non-chat models: whisper (audio), prompt-guard (safety), orpheus (TTS) */
+      models = models.filter(m => {
+        const id = m.id.toLowerCase();
+        return !id.includes('whisper') && !id.includes('guard') && !id.includes('orpheus');
+      });
       if (models.length === 0) throw new Error();
 
       const defaultId = preferred.find(p => models.some(m => m.id === p)) || models[0].id;
@@ -494,20 +505,35 @@
 
   function updateActiveModelLabel(modelId) {
     activeModelName.textContent = modelId;
-    if (modelId.includes('70b')) {
+    const id = modelId.toLowerCase();
+    if (id.includes('compound')) {
+      modelBadge.textContent = '🔗 Compound';
+      modelBadge.style.background = 'rgba(251, 191, 36, 0.12)';
+      modelBadge.style.color = '#fbbf24';
+    } else if (id.includes('120b')) {
+      modelBadge.textContent = '🔥 120B Ultra';
+      modelBadge.style.background = 'rgba(239, 68, 68, 0.12)';
+      modelBadge.style.color = '#ef4444';
+    } else if (id.includes('70b')) {
       modelBadge.textContent = '70B Ultra';
       modelBadge.style.background = 'rgba(56, 189, 248, 0.12)';
       modelBadge.style.color = '#38bdf8';
-    } else if (modelId.includes('8b') || modelId.includes('instant')) {
+    } else if (id.includes('8b') || id.includes('instant')) {
       modelBadge.textContent = '⚡ Instant';
       modelBadge.style.background = 'rgba(16, 185, 129, 0.12)';
       modelBadge.style.color = '#10b981';
-    } else if (modelId.includes('deepseek') || modelId.includes('qwen')) {
+    } else if (id.includes('deepseek') || id.includes('qwen')) {
       modelBadge.textContent = '🧠 Reasoning';
       modelBadge.style.background = 'rgba(196, 181, 253, 0.12)';
       modelBadge.style.color = '#c4b5fd';
+    } else if (id.includes('gpt-oss')) {
+      modelBadge.textContent = '💎 GPT-OSS';
+      modelBadge.style.background = 'rgba(56, 189, 248, 0.12)';
+      modelBadge.style.color = '#38bdf8';
     } else {
       modelBadge.textContent = 'Turbo';
+      modelBadge.style.background = 'rgba(148, 163, 184, 0.12)';
+      modelBadge.style.color = '#94a3b8';
     }
   }
 

@@ -4,43 +4,79 @@ A state-of-the-art conversational AI interface built with an ultra-fast Groq LPU
 
 ## ✨ Features
 
-- **⚡ Blazing-Fast Streaming Inference**: Powered by Groq's low-latency LPU architecture (LLaMA 3.3 70B, DeepSeek, Qwen, etc.).
-- **🎨 Obsidian & Starlight Aesthetics**: Minimalist luxury interface featuring ambient spotlight meshes, frosted titanium cards, and refined typography.
-- **🧠 Thought Process Accordion**: Encapsulates internal reasoning steps for reasoning models in a collapsible dropdown (like DeepSeek & ChatGPT).
-- **🎙️ Voice Dictation & Text-to-Speech**: Hands-free voice prompts and narration via Web Speech API.
-- **📝 Code Canvas & Markdown**: Syntax highlighting with language tags, copy buttons, and formatted tables.
-- **💾 Session Archive & Export**: Local storage conversation persistence, keyword search, and one-click Markdown export.
+- **⚡ Blazing-Fast Streaming Inference**: Powered by Groq's low-latency LPU + OpenRouter fallback.
+- **🎨 Obsidian & Starlight Aesthetics**: Minimalist luxury interface with ambient spotlights and frosted titanium cards.
+- **🧠 Thought Process Accordion**: Collapsible reasoning display for thinking models (DeepSeek, Qwen, etc.).
+- **🎙️ Voice Dictation & Text-to-Speech**: Hands-free voice prompts via Web Speech API.
+- **📝 Code Canvas & Markdown**: Syntax highlighting, copy buttons, and formatted tables.
+- **💾 Session Archive & Export**: Local storage persistence, keyword search, one-click Markdown export.
+
+---
 
 ## 🚀 Quickstart
 
-### 1. Clone the repository
+### Local (Node)
+
 ```bash
 git clone https://github.com/chinna1307/ChatBot.git
 cd ChatBot
-```
-
-### 2. Install dependencies
-```bash
 npm install
+cp .env.example .env   # then fill in your API keys
+npm start
 ```
 
-### 3. Configure API Key
-Create a `.env` file in the project root:
-```env
-GROQ_API_KEY=your_groq_api_key_here
-PORT=3000
-```
-*(Get a free API key at [console.groq.com](https://console.groq.com))*
+Open [http://localhost:10000](http://localhost:10000)
 
-### 4. Run the development server
+### Docker
+
 ```bash
-npm run dev
+# Build
+docker build -t jarvis-ai .
+
+# Run (reads keys from your .env file)
+docker run --env-file .env -p 10000:10000 jarvis-ai
 ```
 
-Open [http://localhost:3000](http://localhost:3000) in your browser.
+Open [http://localhost:10000](http://localhost:10000)  
+Health check: [http://localhost:10000/health](http://localhost:10000/health)
+
+---
+
+## ☁️ Render Deployment
+
+Render auto-detects the `Dockerfile` in the repository root.
+
+**Steps:**
+1. Push this repo to GitHub.
+2. In Render → **New Web Service** → connect your GitHub repo.
+3. Render detects Docker automatically. No extra build command needed.
+4. In Render's **Environment** tab, add:
+   - `GROQ_API_KEY` — your Groq key
+   - `OPENROUTER_API_KEY` — your OpenRouter key
+   - *(Do NOT set PORT — Render injects it automatically)*
+5. Set the **Health Check Path** to `/health`.
+6. Deploy.
+
+> ⚠️ Never commit real API keys. `.env` is in `.gitignore`.
+
+---
+
+## 🌐 API Routes
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/` | Serves the Jarvis frontend |
+| `POST` | `/api/chat` | Streaming SSE chat proxy |
+| `GET` | `/api/models` | Merged model catalog |
+| `GET` | `/health` | Liveness probe |
+
+---
 
 ## 🛠️ Tech Stack
+
 - **Backend**: Node.js, Express.js (SSE streaming proxy)
-- **Frontend**: HTML5, Vanilla CSS3 (Custom design system), Vanilla JavaScript
-- **Libraries**: Marked.js (Markdown parsing), Highlight.js (Syntax highlighting)
-- **AI Provider**: Groq Cloud API
+- **Frontend**: HTML5, Vanilla CSS3, Vanilla JavaScript
+- **Libraries**: Marked.js, Highlight.js
+- **AI Providers**: Groq Cloud API + OpenRouter (with automatic fallback)
+- **Container**: Docker (multi-stage, node:20-alpine)
+- **Hosting**: Render (Docker)

@@ -1,0 +1,36 @@
+# ── Build context exclusions ──────────────────────────────────────────────────
+
+# Dependencies (re-installed inside the image)
+node_modules
+npm-debug.log*
+
+# Secrets — NEVER bake into image layers
+.env
+.env.*
+!.env.example
+
+# Git metadata
+.git
+.gitignore
+.gitattributes
+
+# Docker files themselves (not needed inside the image)
+Dockerfile
+.dockerignore
+
+# Editor / IDE artefacts
+.vscode
+.idea
+*.swp
+*.swo
+
+# OS noise
+.DS_Store
+Thumbs.db
+
+# Docs / CI (not needed at runtime)
+README.md
+*.md
+
+# Agent config (local dev tooling only)
+.agents

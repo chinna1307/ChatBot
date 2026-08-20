@@ -3,7 +3,7 @@ const express = require('express');
 const path = require('path');
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 10000;
 const GROQ_API_KEY = process.env.GROQ_API_KEY;
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
 
@@ -275,8 +275,51 @@ app.get('/api/models', async (_req, res) => {
   res.json(allModels);
 });
 
-app.listen(PORT, () => {
-  console.log(`\n  ✨  Jarvis AI running at  http://localhost:${PORT}`);
+/* ------------------------------------------------------------------ */
+/*  GET /health  –  lightweight liveness probe (no AI calls)          */
+/* ------------------------------------------------------------------ */
+app.get('/health', (_req, res) => {
+  res.json({
+    status: 'ok',
+    uptime: Math.floor(process.uptime()),
+    providers: {
+      openrouter: !!OPENROUTER_API_KEY,
+      groq: !!GROQ_API_KEY,
+    },
+  });
+});
+
+/* ------------------------------------------------------------------ */
+/*  Server boot — bind 0.0.0.0 so Docker/Render can reach us          */
+/* ------------------------------------------------------------------ */
+const server = app.listen(PORT, '0.0.0.0', () => {
+  console.log(`\n  ✨  Jarvis AI running at  http://0.0.0.0:${PORT}`);
   console.log(`  📡  OpenRouter: ${OPENROUTER_API_KEY ? 'ACTIVE' : 'NOT SET'}`);
   console.log(`  ⚡  Groq:       ${GROQ_API_KEY ? 'ACTIVE' : 'NOT SET'}\n`);
+});
+
+/* ------------------------------------------------------------------ */
+/*  Graceful shutdown (Render sends SIGTERM before stopping)           */
+/* ------------------------------------------------------------------ */
+function gracefulShutdown(signal) {
+  console.log(`\n  [${signal}] Shutting down gracefully…`);
+  server.close(() => {
+    console.log('  HTTP server closed.');
+    process.exit(0);
+  });
+  // Force-exit if close takes too long
+  setTimeout(() => process.exit(1), 10_000);
+}
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+process.on('SIGINT',  () => gracefulShutdown('SIGINT'));
+
+/* ------------------------------------------------------------------ */
+/*  Global error guards                                                */
+/* ------------------------------------------------------------------ */
+process.on('uncaughtException', (err) => {
+  console.error('[uncaughtException]', err.message);
+  // Stay alive — Express already handles most request-level errors
+});
+process.on('unhandledRejection', (reason) => {
+  console.error('[unhandledRejection]', reason);
 });

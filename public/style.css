@@ -958,6 +958,72 @@ details[open] > .thought-summary .thought-icon {
   border-left: 2px solid var(--accent-violet);
 }
 
+/* ── Thinking Indicator (while waiting for response) ── */
+.thinking-indicator {
+  background: rgba(15, 17, 26, 0.6);
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  overflow: hidden;
+  animation: thinkingPulse 2s ease-in-out infinite;
+}
+
+.thinking-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--accent-lavender);
+  background: rgba(139, 92, 246, 0.06);
+}
+
+.thinking-icon-spinner {
+  width: 14px;
+  height: 14px;
+  color: var(--accent-lavender);
+  animation: spinThink 1.5s linear infinite;
+  flex-shrink: 0;
+}
+
+.thinking-text {
+  display: flex;
+  align-items: baseline;
+  gap: 0;
+}
+
+.thinking-ellipsis::after {
+  content: '';
+  animation: ellipsis 1.4s steps(4, end) infinite;
+  display: inline-block;
+  width: 1.2em;
+  text-align: left;
+}
+
+@keyframes spinThink {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes ellipsis {
+  0%   { content: ''; }
+  25%  { content: '.'; }
+  50%  { content: '..'; }
+  75%  { content: '...'; }
+  100% { content: ''; }
+}
+
+@keyframes thinkingPulse {
+  0%, 100% {
+    border-color: var(--border-subtle);
+    box-shadow: 0 0 0 0 rgba(139, 92, 246, 0);
+  }
+  50% {
+    border-color: rgba(139, 92, 246, 0.3);
+    box-shadow: 0 0 12px 0 rgba(139, 92, 246, 0.08);
+  }
+}
+
 /* ── Typing Cursor ── */
 .typing-cursor {
   display: inline-block;

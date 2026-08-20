@@ -376,8 +376,6 @@
     abortCtrl = new AbortController();
 
     let fullResponse = '';
-    let displayedLen = 0;
-    let streamFinished = false;
 
     /* ── Thinking indicator appears IMMEDIATELY before any API call ── */
     const typingEl = appendTypingIndicator();
@@ -402,32 +400,7 @@
         throw new Error(errMsg);
       }
 
-      /* ── First token/response arrived — remove thinking, show response ── */
-      typingEl.removeOnce();
-      const assistantEl = appendMessage('assistant', '');
-      const bodyEl = assistantEl.querySelector('.assistant-body');
-
-      /* Typewriter Animation Ticker */
-      const typeWriterPromise = new Promise((resolve) => {
-        const typeInterval = setInterval(() => {
-          if (displayedLen < fullResponse.length) {
-            const remaining = fullResponse.length - displayedLen;
-            // Adaptive typing speed: 1-2 chars for close stream, 4-8 chars for bursts
-            const step = remaining > 80 ? 8 : remaining > 30 ? 4 : remaining > 10 ? 2 : 1;
-            displayedLen = Math.min(displayedLen + step, fullResponse.length);
-
-            const currentSlice = fullResponse.slice(0, displayedLen);
-            bodyEl.innerHTML = renderMarkdown(currentSlice) + '<span class="typing-cursor">▌</span>';
-            messagesEl.scrollTop = messagesEl.scrollHeight;
-          } else if (streamFinished) {
-            clearInterval(typeInterval);
-            bodyEl.innerHTML = renderMarkdown(fullResponse);
-            messagesEl.scrollTop = messagesEl.scrollHeight;
-            resolve();
-          }
-        }, 14);
-      });
-
+      /* ── Stream ALL tokens silently; Thinking stays visible the whole time ── */
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
       let buffer = '';
@@ -455,8 +428,30 @@
         }
       }
 
-      streamFinished = true;
-      await typeWriterPromise;
+      /* ── ALL tokens collected — NOW remove Thinking and show response ── */
+      typingEl.removeOnce();
+      const assistantEl = appendMessage('assistant', '');
+      const bodyEl = assistantEl.querySelector('.assistant-body');
+
+      /* Typewriter plays on the fully-collected response */
+      await new Promise((resolve) => {
+        let displayedLen = 0;
+        const typeInterval = setInterval(() => {
+          if (displayedLen < fullResponse.length) {
+            const remaining = fullResponse.length - displayedLen;
+            const step = remaining > 80 ? 8 : remaining > 30 ? 4 : remaining > 10 ? 2 : 1;
+            displayedLen = Math.min(displayedLen + step, fullResponse.length);
+            const currentSlice = fullResponse.slice(0, displayedLen);
+            bodyEl.innerHTML = renderMarkdown(currentSlice) + '<span class="typing-cursor">▌</span>';
+            messagesEl.scrollTop = messagesEl.scrollHeight;
+          } else {
+            clearInterval(typeInterval);
+            bodyEl.innerHTML = renderMarkdown(fullResponse);
+            messagesEl.scrollTop = messagesEl.scrollHeight;
+            resolve();
+          }
+        }, 14);
+      });
     } catch (err) {
       /* ── Always remove thinking on error/abort/network-fail/timeout ── */
       typingEl.removeOnce();
